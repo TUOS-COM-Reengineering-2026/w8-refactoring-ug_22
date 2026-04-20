@@ -2,7 +2,7 @@ import unittest
 import io
 import contextlib
 
-from main import CustomerManager, calculate_shipping_fee_for_fragile_items
+from main import CustomerManager, calculate_shipping_fee_for_fragile_items, calculate_shipping_fee_for_heavy_items
 
 class TestCustomerManager(unittest.TestCase):
 
@@ -27,6 +27,31 @@ class TestCustomerManager(unittest.TestCase):
             {name: [purchase]},
             cm.customers
         )
+
+    def test_add_purchases(self):
+
+        cm = CustomerManager()
+        name = "Alice"
+        purchases = [{'price': 50, 'item': 'banana'}, {'price': 200, 'item': 'apple'}]
+        cm.add_purchases(name, purchases)
+
+        self.assertEqual(
+            {name: [{'price': 50, 'item': 'banana'}, {'price': 200, 'item': 'apple'}]},
+            cm.customers
+        )
+
+    def test_calculate_shipping_fee_for_heavy_items_when_less_than_twenty(self):
+
+        purchases = [{'price': 50, 'item': 'banana'}, {'price': 200, 'item': 'apple', "weight": 0}]
+        actual = calculate_shipping_fee_for_heavy_items(purchases)
+        self.assertEqual(20, actual)
+
+    def test_calculate_shipping_fee_for_heavy_items_when_more_than_twenty(self):
+
+        purchases = [{'price': 50, 'item': 'banana'}, {'price': 200, 'item': 'apple', "weight": 100}]
+        actual = calculate_shipping_fee_for_heavy_items(purchases)
+        self.assertEqual(50, actual)
+
 
     def test_add_purchase_multiple(self):
         cm = CustomerManager()
@@ -53,6 +78,62 @@ class TestCustomerManager(unittest.TestCase):
 
         self.assertIn("Bob", output)
         self.assertIn("Eligible for discount", output)
+
+    def test_generate_report_below_tax_threshold(self):
+        cm = CustomerManager()
+        cm.add_customer("Bob", [{'price': 50}])
+
+        # Capture printed output
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            cm.generate_report()
+
+        output = captured.getvalue()
+
+        self.assertIn("Bob", output)
+        self.assertIn("No discount", output)
+
+    def test_generate_report_above_tax_threshold_below_discount(self):
+        cm = CustomerManager()
+        cm.add_customer("Bob", [{'price': 400}])
+
+        # Capture printed output
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            cm.generate_report()
+
+        output = captured.getvalue()
+
+        self.assertIn("Bob", output)
+        self.assertIn("Potential future discount customer", output)
+
+    def test_generate_report_vip(self):
+        cm = CustomerManager()
+        cm.add_customer("Bob", [{'price': 1200}])
+
+        # Capture printed output
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            cm.generate_report()
+
+        output = captured.getvalue()
+
+        self.assertIn("Bob", output)
+        self.assertIn("VIP Customer!", output)
+
+    def test_generate_report_priority_customer(self):
+        cm = CustomerManager()
+        cm.add_customer("Bob", [{'price': 800}])
+
+        # Capture printed output
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            cm.generate_report()
+
+        output = captured.getvalue()
+
+        self.assertIn("Bob", output)
+        self.assertIn("Priority Customer", output)
 
     def test_heavy_item_shipping_fee(self):
         cm = CustomerManager()
